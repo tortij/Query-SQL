@@ -1,0 +1,27 @@
+SELECT * FROM
+(((SELECT PracticeData.id as practice_id, PracticeData.practice_activation_date_utc, AppointmentData.is_cancelled, AppointmentData.is_new_patient, count(*) as appointment_count
+FROM AppointmentData 
+LEFT JOIN PracticeData
+ON AppointmentData.practice_id=PracticeData.id
+WHERE DATEDIFF('day', PracticeData.variable_pricing_activation_time_utc, AppointmentData.created_at_utc) < 29
+GROUP BY PracticeData.id, PracticeData.practice_activation_date_utc, AppointmentData.is_cancelled, AppointmentData.is_new_patient) as A
+
+LEFT JOIN (SELECT PracticeData.id, count(*) as spend_cap_count FROM
+SpendCapData
+LEFT JOIN PracticeData
+ON SpendCapData.practice_id=PracticeData.id
+WHERE DATEDIFF('day', PracticeData.variable_pricing_activation_time_utc, SpendCapData.start_date) < 29
+OR DATEDIFF('day', PracticeData.variable_pricing_activation_time_utc, SpendCapData.end_date) < 29
+GROUP BY PracticeData.id) as B
+
+ON A.practice_id=B.practice_id) as C
+
+LEFT JOIN (SELECT PracticeData.id, count(*) FROM
+SpendLockData
+LEFT JOIN PracticeData
+ON SpendLockData.practice_id=PracticeData.id
+WHERE DATEDIFF('day', PracticeData.variable_pricing_activation_time_utc, SpendLockData.start_date) < 29
+GROUP BY PracticeData.id) as D
+
+ON C.practice_id=D.practice_id) as E
+WHERE E.variable_pricing_activation_time IS NOT NULL
